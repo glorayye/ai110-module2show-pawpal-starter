@@ -18,6 +18,7 @@ VALID_FREQUENCIES = {"daily", "weekly", "as-needed"}
 class Task:
     def __init__(self, name: str, duration: int, priority: int, category: str,
                  frequency: str = "daily", due_time: str = ""):
+        """Create a validated care task with name, duration, priority, category, and frequency."""
         if not name.strip():
             raise ValueError("Task name cannot be empty.")
         if duration <= 0:
@@ -38,15 +39,19 @@ class Task:
         self.completed = False
 
     def mark_complete(self):
+        """Mark this task as completed."""
         self.completed = True
 
     def mark_incomplete(self):
+        """Reset this task to incomplete so it can be scheduled again."""
         self.completed = False
 
     def is_high_priority(self) -> bool:
+        """Return True if priority is 4 or 5."""
         return self.priority >= 4
 
     def to_dict(self) -> dict:
+        """Return a plain dictionary representation of this task for use in the UI."""
         return {
             "name": self.name,
             "duration": self.duration,
@@ -64,6 +69,7 @@ class Task:
 
 class Pet:
     def __init__(self, name: str, species: str, age: int):
+        """Create a pet with a name, species, and age."""
         if not name.strip():
             raise ValueError("Pet name cannot be empty.")
         if age < 0:
@@ -75,17 +81,20 @@ class Pet:
         self.tasks: list[Task] = []
 
     def add_task(self, task: Task):
+        """Add a task to this pet; raises ValueError if a task with the same name already exists."""
         if any(t.name == task.name for t in self.tasks):
             raise ValueError(f"A task named {task.name!r} already exists.")
         self.tasks.append(task)
 
     def remove_task(self, task_name: str):
+        """Remove a task by name; raises ValueError if not found."""
         before = len(self.tasks)
         self.tasks = [t for t in self.tasks if t.name != task_name]
         if len(self.tasks) == before:
             raise ValueError(f"No task named {task_name!r} found.")
 
     def update_task(self, task_name: str, **kwargs):
+        """Update one or more fields on a task by name; raises ValueError for unknown fields."""
         for task in self.tasks:
             if task.name == task_name:
                 for field, value in kwargs.items():
@@ -96,21 +105,26 @@ class Pet:
         raise ValueError(f"No task named {task_name!r} found.")
 
     def get_task(self, task_name: str) -> Task:
+        """Return a single task by name; raises ValueError if not found."""
         for task in self.tasks:
             if task.name == task_name:
                 return task
         raise ValueError(f"No task named {task_name!r} found.")
 
     def get_tasks(self) -> list[Task]:
+        """Return all tasks for this pet."""
         return list(self.tasks)
 
     def get_pending_tasks(self) -> list[Task]:
+        """Return only tasks that have not been marked complete."""
         return [t for t in self.tasks if not t.completed]
 
     def get_tasks_by_category(self, category: str) -> list[Task]:
+        """Return all tasks matching the given category."""
         return [t for t in self.tasks if t.category == category]
 
     def to_dict(self) -> dict:
+        """Return a plain dictionary representation of this pet for use in the UI."""
         return {
             "name": self.name,
             "species": self.species,
@@ -124,6 +138,7 @@ class Pet:
 
 class Owner:
     def __init__(self, name: str, available_time: int):
+        """Create an owner with a daily time budget in minutes."""
         if not name.strip():
             raise ValueError("Owner name cannot be empty.")
         if available_time <= 0:
@@ -135,36 +150,44 @@ class Owner:
         self.pets: list[Pet] = []
 
     def add_preference(self, pref: str):
+        """Add a scheduling preference; silently ignores duplicates and blank strings."""
         if pref.strip() and pref.strip() not in self.preferences:
             self.preferences.append(pref.strip())
 
     def get_available_time(self) -> int:
+        """Return the owner's total daily time budget in minutes."""
         return self.available_time
 
     def add_pet(self, pet: Pet):
+        """Register a pet under this owner; raises ValueError if a pet with the same name exists."""
         if any(p.name == pet.name for p in self.pets):
             raise ValueError(f"A pet named {pet.name!r} is already registered.")
         self.pets.append(pet)
 
     def remove_pet(self, pet_name: str):
+        """Remove a pet by name; raises ValueError if not found."""
         before = len(self.pets)
         self.pets = [p for p in self.pets if p.name != pet_name]
         if len(self.pets) == before:
             raise ValueError(f"No pet named {pet_name!r} found.")
 
     def get_pet(self, pet_name: str) -> Pet:
+        """Return a single pet by name; raises ValueError if not found."""
         for pet in self.pets:
             if pet.name == pet_name:
                 return pet
         raise ValueError(f"No pet named {pet_name!r} found.")
 
     def get_pets(self) -> list[Pet]:
+        """Return all pets registered to this owner."""
         return list(self.pets)
 
     def get_all_tasks(self) -> list[Task]:
+        """Return every task across all of this owner's pets."""
         return [task for pet in self.pets for task in pet.get_tasks()]
 
     def to_dict(self) -> dict:
+        """Return a plain dictionary representation of this owner for use in the UI."""
         return {
             "name": self.name,
             "available_time": self.available_time,
@@ -178,13 +201,14 @@ class Owner:
 
 class Scheduler:
     def __init__(self, owner: Owner):
+        """Create a scheduler for the given owner, operating across all their pets."""
         self.owner = owner
         self.schedule: list[Task] = []
         self._skipped: list[Task] = []
         self._generated = False
 
     def _all_pending_tasks(self) -> list[Task]:
-        # Daily tasks are always included; weekly/as-needed only if not yet completed
+        """Collect all incomplete tasks from every pet; daily tasks always included."""
         return [
             task
             for pet in self.owner.get_pets()
@@ -193,16 +217,20 @@ class Scheduler:
         ]
 
     def fits_in_time(self, task: Task) -> bool:
+        """Return True if adding this task would not exceed the owner's time budget."""
         scheduled_minutes = sum(t.duration for t in self.schedule)
         return scheduled_minutes + task.duration <= self.owner.available_time
 
     def get_remaining_time(self) -> int:
+        """Return how many minutes are left in the owner's daily budget after scheduling."""
         return self.owner.available_time - sum(t.duration for t in self.schedule)
 
     def filter_by_priority(self) -> list[Task]:
+        """Return all pending tasks sorted from highest to lowest priority."""
         return sorted(self._all_pending_tasks(), key=lambda t: t.priority, reverse=True)
 
     def generate_schedule(self) -> list[Task]:
+        """Build the daily plan using a two-pass greedy algorithm; returns the scheduled task list."""
         self.schedule = []
         self._skipped = []
 
@@ -227,6 +255,7 @@ class Scheduler:
 
     @staticmethod
     def _priority_label(priority: int) -> str:
+        """Convert a numeric priority to a HIGH / MED / LOW label."""
         if priority >= 4:
             return "HIGH"
         if priority == 3:
@@ -234,7 +263,7 @@ class Scheduler:
         return "LOW"
 
     def _task_to_pet(self) -> dict:
-        # keyed by object id to handle tasks with the same name across different pets
+        """Build an object-id → pet name lookup to correctly handle tasks with shared names."""
         return {
             id(task): pet.name
             for pet in self.owner.get_pets()
@@ -242,6 +271,7 @@ class Scheduler:
         }
 
     def explain_plan(self) -> str:
+        """Return a formatted schedule summary; raises RuntimeError if called before generate_schedule."""
         if not self._generated:
             raise RuntimeError("Call generate_schedule() before explain_plan().")
 
