@@ -25,8 +25,12 @@ classDiagram
         +String name
         +int available_time
         +List~String~ preferences
+        +List~Pet~ pets
         +add_preference(pref: String)
         +get_available_time() int
+        +add_pet(pet: Pet)
+        +remove_pet(pet_name: String)
+        +get_pets() List~Pet~
     }
 
     class Pet {
@@ -36,6 +40,7 @@ classDiagram
         +List~Task~ tasks
         +add_task(task: Task)
         +remove_task(task_name: String)
+        +update_task(task_name: String, kwargs)
         +get_tasks() List~Task~
     }
 
@@ -44,6 +49,7 @@ classDiagram
         +int duration
         +int priority
         +String category
+        +String due_time
         +bool completed
         +mark_complete()
         +is_high_priority() bool
@@ -51,7 +57,6 @@ classDiagram
 
     class Scheduler {
         +Owner owner
-        +Pet pet
         +List~Task~ schedule
         +generate_schedule() List~Task~
         +filter_by_priority() List~Task~
@@ -59,17 +64,17 @@ classDiagram
         +explain_plan() String
     }
 
-    Owner "1" --> "1" Pet : owns
+    Owner "1" --> "many" Pet : owns
     Pet "1" o-- "many" Task : has
     Scheduler "1" --> "1" Owner : uses
-    Scheduler "1" --> "1" Pet : uses
 ```
 
 **b. Design changes**
 
 - Did your design change during implementation?
+Yes
 - If yes, describe at least one change and why you made it.
-
+The most significant change was to `Scheduler`. In my initial design, `Scheduler` took both an `Owner` and a single `Pet` as inputs. During review I realized this contradicted the `Owner` class, which already holds a list of pets. The two classes were out of sync — you could pass a pet the owner didn't even own, and the scheduler would never see any of the owner's other pets. I changed `Scheduler` to accept only an `Owner` and collect tasks from all of the owner's pets internally. This made the relationship consistent: `Owner` → `pets` → `tasks` is now the single path through the system, and the scheduler is no longer bypassing it.
 ---
 
 ## 2. Scheduling Logic and Tradeoffs
