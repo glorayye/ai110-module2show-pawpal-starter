@@ -1,9 +1,24 @@
+# pawpal_system.py
+# Logic layer for PawPal+ — all backend classes live here.
+#
+# Classes:
+#   Task      — a single care task (walk, feeding, meds, etc.)
+#   Pet       — a pet that owns a list of tasks
+#   Owner     — the pet owner with daily time constraints and preferences
+#   Scheduler — generates a priority-ordered daily plan within the owner's time budget
+#
+# Future work:
+#   Reminder system — filter tasks due within the next hour, sorted by priority,
+#   with conflict detection across multiple pets.
+
+
 class Task:
-    def __init__(self, name: str, duration: int, priority: int, category: str):
+    def __init__(self, name: str, duration: int, priority: int, category: str, due_time: str = ""):
         self.name = name
         self.duration = duration      # minutes
         self.priority = priority      # 1 (low) to 5 (high)
         self.category = category      # e.g. "walk", "feeding", "meds", "grooming", "enrichment"
+        self.due_time = due_time      # e.g. "08:00 AM" — optional, used by future reminder system
         self.completed = False
 
     def mark_complete(self):
@@ -50,6 +65,7 @@ class Owner:
         self.name = name
         self.available_time = available_time   # total minutes available per day
         self.preferences: list[str] = []
+        self.pets: list[Pet] = []
 
     def add_preference(self, pref: str):
         self.preferences.append(pref)
@@ -57,8 +73,17 @@ class Owner:
     def get_available_time(self) -> int:
         return self.available_time
 
+    def add_pet(self, pet: "Pet"):
+        self.pets.append(pet)
+
+    def remove_pet(self, pet_name: str):
+        self.pets = [p for p in self.pets if p.name != pet_name]
+
+    def get_pets(self) -> list["Pet"]:
+        return self.pets
+
     def __repr__(self):
-        return f"Owner({self.name!r}, {self.available_time}min/day)"
+        return f"Owner({self.name!r}, {self.available_time}min/day, {len(self.pets)} pet(s))"
 
 
 class Scheduler:
@@ -81,7 +106,7 @@ class Scheduler:
                 self.schedule.append(task)
         return self.schedule
 
-def explain_plan(self) -> str:
+    def explain_plan(self) -> str:
         if not self.schedule:
             return "No tasks could be scheduled within the available time."
 
