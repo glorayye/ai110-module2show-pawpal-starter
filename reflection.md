@@ -82,12 +82,18 @@ The most significant change was to `Scheduler`. In my initial design, `Scheduler
 **a. Constraints and priorities**
 
 - What constraints does your scheduler consider (for example: time, priority, preferences)?
+The scheduler considers three constraints: the owner's daily time budget (total minutes available), task priority (1–5), and task frequency (daily, weekly, as-needed). It also respects completion status — completed tasks are excluded from the next run unless they are daily or weekly, in which case they auto-renew.
+
 - How did you decide which constraints mattered most?
+Time budget and priority were the most important because they directly determine what gets done. A task that exceeds the time budget simply can't happen, and priority ensures critical tasks like meds and feeding are scheduled before optional ones like grooming. Frequency came third — it prevents tasks from being double-scheduled or lingering after completion.
 
 **b. Tradeoffs**
 
 - Describe one tradeoff your scheduler makes.
+The conflict detector only flags tasks that share the exact same `due_time` string (e.g. both at `"08:30 AM"`). It does not check whether task durations actually overlap — for example, a 30-minute task at `08:00 AM` and a 20-minute task at `08:15 AM` would not be flagged even though they run at the same time.
+
 - Why is that tradeoff reasonable for this scenario?
+For a single pet owner managing daily care tasks, exact-time conflicts are the most common and most obvious problem to catch. Implementing full duration-overlap detection would require parsing time strings into `datetime` objects and comparing ranges — significantly more complexity for an edge case that rarely occurs in a home care schedule. The simpler check covers the practical need without overcomplicating the system.
 
 ---
 

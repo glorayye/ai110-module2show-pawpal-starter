@@ -23,7 +23,7 @@ cat.add_task(Task("Breakfast",     duration=5,  priority=5, category="feeding", 
 cat.add_task(Task("Litter Box",    duration=5,  priority=4, category="other",       frequency="daily"))
 cat.add_task(Task("Playtime",      duration=15, priority=3, category="enrichment",  frequency="as-needed"))
 
-# ── 5. Generate schedule ──────────────────────────────────────────────────────
+# ── 3. Generate schedule ──────────────────────────────────────────────────────
 scheduler = Scheduler(owner)
 
 print("\n>>> Heartworm Med is PENDING (weekly task, not yet given)")
@@ -40,7 +40,21 @@ for task in tasks_to_complete:
     scheduler.generate_schedule()
     print(scheduler.explain_plan())
 
-# ── 7. Test edge cases ────────────────────────────────────────────────────────
+# ── 4. Conflict detection ────────────────────────────────────────────────────
+print("\n" + "=" * 50)
+print("CONFLICT DETECTION")
+print("=" * 50)
+
+# Both Buddy's Breakfast and Whiskers' Breakfast are at 08:30 AM — intentional conflict
+scheduler.generate_schedule()
+conflicts = scheduler.detect_conflicts()
+if conflicts:
+    for warning in conflicts:
+        print(warning)
+else:
+    print("No conflicts detected.")
+
+# ── 5. Test edge cases ────────────────────────────────────────────────────────
 print("\n" + "=" * 50)
 print("EDGE CASES")
 print("=" * 50)

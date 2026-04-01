@@ -11,6 +11,8 @@
 #   Reminder system — filter tasks due within the next hour, sorted by priority,
 #   with conflict detection across multiple pets.
 
+from datetime import date, timedelta
+
 VALID_CATEGORIES = {"walk", "feeding", "meds", "grooming", "enrichment", "other"}
 VALID_FREQUENCIES = {"daily", "weekly", "as-needed"}
 
@@ -41,6 +43,19 @@ class Task:
     def mark_complete(self):
         """Mark this task as completed."""
         self.completed = True
+
+    def clone(self) -> "Task":
+        """Return a fresh pending copy of this task; daily tasks advance due_date by 1 day, weekly by 7."""
+        days = {"daily": 1, "weekly": 7}.get(self.frequency, 0)
+        next_date = (date.today() + timedelta(days=days)).strftime("%Y-%m-%d") if days else self.due_time
+        return Task(
+            name=self.name,
+            duration=self.duration,
+            priority=self.priority,
+            category=self.category,
+            frequency=self.frequency,
+            due_time=next_date,
+        )
 
     def mark_incomplete(self):
         """Reset this task to incomplete so it can be scheduled again."""
@@ -103,6 +118,14 @@ class Pet:
                     setattr(task, field, value)
                 return
         raise ValueError(f"No task named {task_name!r} found.")
+
+    def complete_task(self, task_name: str):
+        """Mark a task complete; for daily/weekly tasks, replaces it with a fresh pending clone."""
+        task = self.get_task(task_name)
+        task.mark_complete()
+        if task.frequency in ("daily", "weekly"):
+            self.tasks = [t for t in self.tasks if t.name != task_name]
+            self.tasks.append(task.clone())
 
     def get_task(self, task_name: str) -> Task:
         """Return a single task by name; raises ValueError if not found."""
@@ -228,6 +251,46 @@ class Scheduler:
     def filter_by_priority(self) -> list[Task]:
         """Return all pending tasks sorted from highest to lowest priority."""
         return sorted(self._all_pending_tasks(), key=lambda t: t.priority, reverse=True)
+
+    def sort_by_time(self) -> list[Task]:
+        """Return scheduled tasks sorted by due_time; tasks with no time set appear last."""
+        return sorted(self.schedule, key=lambda t: (t.due_time == "", t.due_time))
+
+    def detect_conflicts(self) -> list[str]:
+        """Return warnings for tasks sharing the same due_time, including which pet each belongs to."""
+        pet_lookup = {id(task): pet.name for pet in self.owner.get_pets() for task in pet.get_tasks()}
+        warnings = []
+        timed = [t for t in self.schedule if t.due_time]
+        seen: dict[str, tuple[str, str]] = {}  # due_time -> (task_name, pet_name)
+        for task in timed:
+            pet = pet_lookup.get(id(task), "?")
+            if task.due_time in seen:
+                prev_task, prev_pet = seen[task.due_time]
+                if prev_pet == pet:
+                    warnings.append(
+                        f"WARNING: Conflict at {task.due_time}: '{prev_task}' and '{task.name}' "
+                        f"are both scheduled for {pet}."
+                    )
+                else:
+                    warnings.append(
+                        f"WARNING: Conflict at {task.due_time}: '{prev_task}' ({prev_pet}) "
+                        f"and '{task.name}' ({pet}) overlap."
+                    )
+            else:
+                seen[task.due_time] = (task.name, pet)
+        return warnings
+
+    def filter_tasks(self, completed: bool | None = None, pet_name: str | None = None) -> list[Task]:
+        """Return tasks filtered by completion status and/or pet name; None means no filter applied."""
+        pet_lookup = {id(task): pet.name for pet in self.owner.get_pets() for task in pet.get_tasks()}
+        results = self._all_pending_tasks() + [t for t in self.owner.get_all_tasks() if t.completed]
+
+        if completed is not None:
+            results = [t for t in results if t.completed == completed]
+        if pet_name is not None:
+            results = [t for t in results if pet_lookup.get(id(t)) == pet_name]
+
+        return results
 
     def generate_schedule(self) -> list[Task]:
         """Build the daily plan using a two-pass greedy algorithm; returns the scheduled task list."""
