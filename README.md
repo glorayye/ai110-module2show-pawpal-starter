@@ -57,6 +57,38 @@ Conflict warnings appear automatically below the schedule as `st.warning()` bann
 
 ---
 
+## Testing PawPal+
+
+### Running the tests
+
+```bash
+python -m pytest
+```
+
+### What the tests cover
+
+| Area | Tests | Description |
+|---|---|---|
+| **Sorting correctness** | `test_sort_by_time_*` | Verifies tasks are returned in chronological order — timed tasks sorted earliest-first, untimed tasks appended at the end. |
+| **Recurrence logic** | `test_daily_task_renews_*`, `test_weekly_task_renews_*`, `test_as_needed_task_does_not_renew` | Confirms that completing a `daily` task creates a new task for the following day, a `weekly` task renews 7 days out, and `as-needed` tasks do not renew. |
+| **Conflict detection** | `test_detect_cross_pet_conflict`, `test_detect_same_pet_conflict`, `test_no_conflict_returns_empty_list` | Verifies that the Scheduler flags duplicate `due_time` values across pets and within the same pet, and returns an empty list when no conflicts exist. |
+| **Budget scheduling** | `test_no_tasks_fit_within_budget`, `test_tasks_fill_budget_exactly`, `test_completed_task_excluded_from_schedule` | Checks that the scheduler respects the owner's time budget, fills it exactly when possible, and never includes already-completed tasks. |
+| **Core behavior** | `test_mark_complete_changes_status`, `test_add_task_increases_pet_task_count` | Baseline checks that task completion flips the status flag and that pets correctly track added tasks. |
+
+### Confidence Level
+
+**4 / 5 stars**
+
+The suite covers the three critical behaviors (sorting, recurrence, conflict detection) plus budget edge cases and core status logic — giving solid confidence in the scheduling engine. One star is withheld because the tests do not yet cover the Streamlit UI layer (`app.py`) or integration scenarios involving multiple recurrence cycles and overlapping budget+conflict conditions at the same time.
+
+---
+
+### Demo 
+![alt text](image-2.png)
+![alt text](image-3.png)
+<a href="image-2.png" target="_blank"><img src='image-2.png' title='PawPal App' width='' alt='PawPal App' class='center-block' /></a>
+<a href="image-3.png" target="_blank"><img src='image-3.png' title='PawPal App' width='' alt='PawPal App' class='center-block' /></a>
+
 ### Suggested workflow
 
 1. Read the scenario carefully and identify requirements and edge cases.
